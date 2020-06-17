@@ -6,20 +6,20 @@
 call可以传递任意个参数,它会根据参数去调用对应的doCall方法
 
 public class MultiClosure extends Closure{
-	public MultiClosure(Object owner) {
-		super(owner);
-	}
-	public MultiClosure(Object owner, Object thisObject) {
-		super(owner, thisObject);
-	}
-	Object doCall(String message) {
-		System.out.println(message);
-		return null;
-	}
-	Object doCall(Integer number) {
-		System.out.println(number);
-		return null;
-	}
+    public MultiClosure(Object owner) {
+        super(owner);
+    }
+    public MultiClosure(Object owner, Object thisObject) {
+        super(owner, thisObject);
+    }
+    Object doCall(String message) {
+        System.out.println(message);
+        return null;
+    }
+    Object doCall(Integer number) {
+        System.out.println(number);
+        return null;
+    }
 }
 ```
 ### ComplilerConfiguration 编译配置器
@@ -28,24 +28,24 @@ public class MultiClosure extends Closure{
 - setScriptBaseClass(String):我们可以指定一个extends了Script的类来执行脚本内容
 ``` java
 我们将脚本委托给SettingsGroovy,脚本中的方法从settingsGroovy中获取
-	File setting = settingFile.toFile();
-	CompilerConfiguration conf = new CompilerConfiguration();
-	conf.setScriptBaseClass("com.huawei.fossbot.dependency.dsl.gradle.SettingsGroovy");
-	GroovyShell groovyShell = new GroovyShell(conf);
-	Script settingScript = groovyShell.parse(setting);
-	settingScript.invokeMethod("initSettings", settingFile.toFile());
-	settingScript.run();
-	Settings settings = (Settings)settingScript.invokeMethod("getSettings",null);
-	return settings;
+    File setting = settingFile.toFile();
+    CompilerConfiguration conf = new CompilerConfiguration();
+    conf.setScriptBaseClass("com.huawei.fossbot.dependency.dsl.gradle.SettingsGroovy");
+    GroovyShell groovyShell = new GroovyShell(conf);
+    Script settingScript = groovyShell.parse(setting);
+    settingScript.invokeMethod("initSettings", settingFile.toFile());
+    settingScript.run();
+    Settings settings = (Settings)settingScript.invokeMethod("getSettings",null);
+    return settings;
 ```
 - addCompilationCustomizers(String):添加编译定制器
 ``` groovy
 这里我们使用ImportCustomizer()来给脚本添加一个static imports
-	def conf = new CompilerConfiguration()
-	def imports = new ImportCustomizer()
-	imports.addStaticStar("GeeTwitter")
-	conf.addCompilationCustomizers(imports)
-	def shell = new GroovyShell(this.class.classLoader,new Binding(),conf)
+    def conf = new CompilerConfiguration()
+    def imports = new ImportCustomizer()
+    imports.addStaticStar("GeeTwitter")
+    conf.addCompilationCustomizers(imports)
+    def shell = new GroovyShell(this.class.classLoader,new Binding(),conf)
 ```
 
 ## Groovy高级特性
@@ -185,7 +185,7 @@ Integer.fields.each {println it}
 我们使用set方法时,如果没有该属性,则会创建一个新的属性
 我们使用get方法时,如果没有该属性,则返回Null,而非报异常
 ```
-- Expandos支持动态方法,如果方法未定义,则会报错
+- Expandos支持动态方法,它通过增加一个Closure来实现
 - [ ] 示例
 - 1.动态属性
 ```
@@ -216,3 +216,213 @@ customer.findFirstName = {
 customer.findFirstName()
 ```
 >#### Categories
+- [ ] What?
+- 如果类已经存在(不是Expendos类),我们想在runtime类上增加新的方法,这时候就要用到Categories
+- 我们可以创建一个Category类来向已有的运行中类增加新的方法
+
+- [ ] How?
+- 创建一个类,让这个类拥有要被拓展的方法,并将被拓展类作为第一个参数
+- Category类可以通过use关键字在Clousre中应用
+```
+//这是我们要向其中加入方法的类
+class Customer {
+    int id
+    String firstName
+    String surname
+    String street
+    String city
+}
+//Categories
+class CustomerPrinter{
+    static void prettyPrint(Customer self){
+        println "Customer has following properties"
+        self.properties.sort { it.key }.each {
+            if (it.key != 'prettyPrint' && it.key != 'class')
+                println "    " + it.key + ": " + it.value
+        }
+    }
+}
+
+//创建两个Customer对象
+def fred = new Customer(id:1001,firstName:"Fred",
+        surname:"Flintstone",
+        street:"1 Rock Road",city:"Bedrock")
+def barney =  new Customer(id:1002,firstName:"Barney",
+        surname:"Rubble",
+        street:"2 Rock Road",city:"Bedrock")
+def customerList = [ fred, barney]
+//使用use向Customer对象加入方法并使用,这个有点像是Wrapper
+use(CustomerPrinter){
+    for(customer in customerList){
+        customer.prettyPrint();
+    }
+}
+```
+>#### MetaClass
+- [ ] MetaClass是什么?
+- 所有的Groovy类实际上都实现了groovy.lang.GroovyObject接口,该接口暴露了一个getMetaClass()方法给所有的Groovy对象
+- Groovy中使用的Java类没有实现GroovyObject接口,但是在Groovy脚本中,它们也都有了属于自己的MetaClass(具体是怎么实现的暂且不得而知)
+- 通过.metaClass可以获取到元类
+```
+class Customer {
+       int id
+       String firstName
+       String surname
+       String street
+       String city
+}
+// Access Groovy meta class
+def groovyMeta = Customer.metaClass
+
+//access Java meta class
+def javaMeta = String.metaClass
+```
+- 总的来说MetaClass就是所有Groovy脚本中引用到的类/对象的描述类
+- [ ] MetaClass能做什么?
+- MetaClass维护了Groovy类的所有元信息
+```
+methods
+fields
+properties
+```
+- 和Java的Class类不同,MetaClass允许在运行时增加属性和方法
+- [ ] Pretended methods – MetaClass.invokeMethod
+- ==Groovy和Java类一个很大的区别在于,groovy类的方法调用从不直接去直接调用方法,而是将方法调用分发给GroovyObject.invokeMethod==,它实际上是调用了MetaClass.invokeMethod
+- 这种非直接调用就是Groovy高级特性的关键所在,我们也可以定制自己的"非直接调用"(invokeMethod)
+```
+class Customer {
+    int id
+    String firstName
+    String surname
+    String street
+    String city
+    Object invokeMethod(String name, Object args) {
+        if (name == "prettyPrint") {
+            println "Customer has following properties"
+            this.properties.sort { it.key }.each {
+                if (it.key != 'class')
+            } 
+        }
+    } 
+}
+```
+### ExpandoMetaClass(可扩展的MetaClass)
+>#### 简介
+- 前面我们已经介绍了如何利用Expando类的对象添加动态的方法(使用Closure)
+- 这里我们同样可以使用MetaClass来对一个类完成同样的操作,每个类都有唯一的一个MetaClass,da当我们要改变该类所有的实例时,使用MetaClass是一个很好的方法
+>#### 拓展MetaClass
+- [ ] 增加/重写(Override)方法
+- 我们可以使用MetaClass轻松的增加一个新的方法或者替换当前的方法
+```
+class BankManager{
+    boolean approveLoan(){
+        return fasle
+    }
+}
+
+given:
+    def myBankManager = new BankManager()
+expect:
+    myBankManager.approveLoan() == false
+when:
+    BankManager.metaClass.approveLoan = { true }
+    myBankManager = new BankManager()
+then:
+    myBankManager.approveLoan() == true
+```
+- [ ] 增加/重写(Override)static方法
+```
+
+class BusinessService {
+   static def remoteService
+   static boolean isRemoteServiceLive() {
+       remoteService.isLive()
+   }
+}
+
+when:
+   BusinessService.isRemoteServiceLive()
+then:
+   thrown NullPointerException
+when:
+   BusinessService.metaClass.static.isRemoteServiceLive = { true }
+   def live = BusinessService.isRemoteServiceLive()
+then:
+   notThrown NullPointerException
+   live == true
+```
+- [ ] 方法动态命名
+- 我们也可以动态的给方法命名
+```
+class Customer {
+    int id
+    String firstName
+    String surname
+    String street
+    String city
+}
+
+def c = new Customer();
+
+c.properties.keySet().findAll {
+    //不是class:class Customer的属性
+    !(it =~ /lass/)
+}.each {
+    //创建动态方法
+    Customer.metaClass."idFor${it.capitalize()}" = { ->
+        //注意,这里该closure的delegate就是Customer类的实例
+        delegate."${it}".toString().toLowerCase().tr(' ', '_')
+    }
+}
+
+when:
+    def cust = new Customer(firstName:"Fred",
+                    surname:"Flintstone",
+                    street:"Rock Road",
+                    city:"Bedrock")
+then:
+    cust.idForFirstName() == "fred"
+    cust.idForSurname() == "flintstone"
+    cust.idForStreet() == "rock_road"
+
+```
+- [ ] 增加重载(Overload)方法
+```
+
+given:
+    String.metaClass.static.valueAndType << { 
+        double d ->
+        "${d.class.name}:${valueOf(d)}" 
+    }
+    String.metaClass.static.valueAndType << { 
+        float f ->
+        "${f.class.name}:${valueOf(f)}"
+    }
+    String.metaClass.static.valueAndType << { 
+        int i ->
+        "${i.class.name}:${valueOf(i)}"
+    }
+    String.metaClass.static.valueAndType << { 
+        long l ->
+        "${l.class.name}:${valueOf(l)}"
+    }
+expect:
+    String.valueAndType(1.0) == "java.lang.Double:1.0"
+    String.valueAndType(3.333f) == "java.lang.Float:3.333"
+    String.valueAndType(101) == "java.lang.Integer:101"
+    String.valueAndType(1000000L) == "java.lang.Long:1000000"
+```
+- [ ] Adding Constructors
+```
+given:
+    Customer.metaClass.constructor  = {
+       String first, String last -> new Customer(
+           firstName:first,
+           surname:last)
+}
+when:
+    def c = new Customer("Fred", "Flintstone" )
+then:
+    c.firstName == "Fred"
+    c.surname == "Flintstone"
+```
