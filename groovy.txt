@@ -1,0 +1,218 @@
+# Groovy DSL
+## 开始
+### Closure的doCall()方法
+- doCall()方法不是Closure类的方法,而是用户自定义的方法,这使得你可以任意定义自己的closure
+```
+call可以传递任意个参数,它会根据参数去调用对应的doCall方法
+
+public class MultiClosure extends Closure{
+	public MultiClosure(Object owner) {
+		super(owner);
+	}
+	public MultiClosure(Object owner, Object thisObject) {
+		super(owner, thisObject);
+	}
+	Object doCall(String message) {
+		System.out.println(message);
+		return null;
+	}
+	Object doCall(Integer number) {
+		System.out.println(number);
+		return null;
+	}
+}
+```
+### ComplilerConfiguration 编译配置器
+- [ ] What?
+- ComplilerConfiguration允许我们在执行脚本之前进行一下编译级别的操作
+- setScriptBaseClass(String):我们可以指定一个extends了Script的类来执行脚本内容
+``` java
+我们将脚本委托给SettingsGroovy,脚本中的方法从settingsGroovy中获取
+	File setting = settingFile.toFile();
+	CompilerConfiguration conf = new CompilerConfiguration();
+	conf.setScriptBaseClass("com.huawei.fossbot.dependency.dsl.gradle.SettingsGroovy");
+	GroovyShell groovyShell = new GroovyShell(conf);
+	Script settingScript = groovyShell.parse(setting);
+	settingScript.invokeMethod("initSettings", settingFile.toFile());
+	settingScript.run();
+	Settings settings = (Settings)settingScript.invokeMethod("getSettings",null);
+	return settings;
+```
+- addCompilationCustomizers(String):添加编译定制器
+``` groovy
+这里我们使用ImportCustomizer()来给脚本添加一个static imports
+	def conf = new CompilerConfiguration()
+	def imports = new ImportCustomizer()
+	imports.addStaticStar("GeeTwitter")
+	conf.addCompilationCustomizers(imports)
+	def shell = new GroovyShell(this.class.classLoader,new Binding(),conf)
+```
+
+## Groovy高级特性
+### 命名参数(named parameters)
+- [ ] What?
+- 命名参数允许用户自定义一个POJO(class)作为参数
+- [ ] Why?
+- 与java相同,它对参数进行封装
+- 与java不同,它支持groovy的参数语法,在使用命名参数时,可以随意变换命名参数的位置
+- 这种语法调用很适合DSL的编写,并且不会因为参数顺序导致输入错误
+```
+class Transfer{
+    def from;
+    def to;
+    def _for;
+}
+
+def trans(transfer,money){
+    println "${money} dollars from ${transfer.from} to ${transfer.to} for ${transfer._for}"
+}
+//调用trans函数,使用groovy参数语法,结果相同
+trans from:"tianhaolin",to:"xuguangya",100,_for:"eat somthing"
+trans to:"xuguangya",_for:"eat something",100,from: "tianhaolin"
+```
+### 命令链(command chains)
+- [ ] What
+- Groovy 1.8支持:当我们链式调用方法时省略"."
+- [ ] Why
+- 对DSL非常友好
+```
+package com.powerful.future
+enum Currency { USD, GBP, EUR }
+
+class Account {
+    double balance
+}
+static def convert ( currency, amount) {
+    def result
+    switch (currency) {
+        case Currency.USD: result = amount
+            break
+        case Currency.GBP: result = amount * 1.3
+            break
+        case Currency.EUR: result = amount * 1.1
+    }
+    result
+}
+static def deposit (double amount) {
+    [
+            currency: { Currency currency ->
+                [to: { account ->
+                    account.balance += convert( currency , amount )
+                }
+                ]
+            }
+    ]
+}
+
+Account savings = new Account();
+//they are asame
+deposit(100.0).currency(Currency.USD).to(savings)
+deposit 100.0 currency Currency.USD to savings
+```
+### 构建器(Builders)
+- 可以使用groovy脚本构建XML等结构型文件,这里先不学习了
+### 界面构建器(SwingBuilder)
+- 可以使用groovy脚本构建Swing界面.这里就不学习了
+### 方法指针
+- [ ] What?
+- groovy 允许分配一个分配一个方法给一个闭包,方法的返回值也可以作为一个方法指针
+```
+Groovy allows you to assign a method to a closure by using the & syntax
+The closure returned is often referred to as a method pointer.
+```
+- [ ] How?
+- 通过&语法
+```
+package com.powerful.future
+
+class Artifact{
+    def group;
+    def name;
+    def version;
+}
+
+class MyList{
+    def list = [];
+    def add(artifact){
+        def group = artifact.group
+        def name = artifact.name
+        def version = artifact.version
+        list.add(new Artifact(group:group,name:name,version:version))
+    }
+}
+
+def list = new MyList();
+
+list.add(group:"com.huawei",name:"fossbot",version: "1.0")
+list.add(group:"com.huawei",name:"fossbot2",version: "1.0")
+//define a method implement to add an artifact in mylist
+def implement = list.&add
+implement group:"com.huawei",name:"dependencyParser",version:"3.9"
+
+list.list.each {
+    println "${it.group},${it.name},${it.version}"
+}
+```
+- [ ] Why?
+- 主要是对DSL的支持,但是，直接拿出实例的方法实际上是违反对象封装性原则的。但是对静态方法来说，却是能够创建DSL快捷关键字的一个好法子
+### 元编程-Meta Programming&&Groovy MOP
+>#### MOP
+- MOP:Meta-Object Protocol
+```
+Groovy的MOP由4部分构成
+- reflection
+- metaclasses
+- categories
+- expandos
+```
+>#### Reflection(反射)
+- [ ] 获取class
+- .class,.package,.methods,.fields即可获取相应的对象
+```
+def greeting = "hello"
+println greeting.class
+println String.package
+Object.methods.each { println it}
+Integer.fields.each {println it}
+```
+>#### expandos(可扩展对象)
+- [ ] 什么是expandos
+- expandos是expandable object的缩写,表示可扩展对象
+- [ ] groovy的expandos
+- groovy的Expandos是Groovy bean的一个动态表示
+- Expandos支持get/set方法
+```
+我们使用set方法时,如果没有该属性,则会创建一个新的属性
+我们使用get方法时,如果没有该属性,则返回Null,而非报异常
+```
+- Expandos支持动态方法,如果方法未定义,则会报错
+- [ ] 示例
+- 1.动态属性
+```
+package com.powerful.future
+
+def customer = new Expando();
+//customer属性为空集合
+assert customer.properties == [:]
+assert customer.id == null
+
+customer.id = 1001
+customer.firstName = "Fred"
+customer.surname = "Flintstone"
+customer.street = "1 Rock Road"
+
+assert customer.id == 1001
+assert customer.properties == [id:1001,firstName:'Fred',surname:'Flintstone',street:'1 Rock Road']
+```
+- 2.动态方法
+```
+customer.firstName = "Fred"
+//报错,因为没有findFirstName()方法
+customer.findFirstName()
+customer.findFirstName = {
+    println customer.firstName
+}
+//打印Fred
+customer.findFirstName()
+```
+>#### Categories
