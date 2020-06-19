@@ -1,0 +1,114 @@
+#熟读Gradle
+
+## Declaring Dependencies
+### Dependency Configurations
+>#### 什么是Dependency Configuraions
+- [ ] 简介
+- 每一个依赖的声名都伴随着其生效范围(scope),Gradle表示一个依赖的scope时依赖于Configuration
+```
+有些依赖仅编译期生效
+有些依赖仅在runtime生效
+有些依赖在test生效
+```
+- 许多Gralde plugins添加了预定义的Dependency Configuraions
+```
+如Java Plugin提供了
+implementation/compileOnly...等(在java plugins中详述)
+```
+- 每一个Configuraion中维护了一个DependencySet,这是所有声名了的对应scope的dependencies
+- [ ] Configuration继承
+- 我们可以在Configuraions声名一个ChildConfiguraion extends ParentConfiguraion
+- ChildConfiguraion会继承ParentConfiguration的DependencySet
+```
+举例:
+testImplementation extends implementation
+我们声名:
+dependencies{
+	implementation group:"com.google.guava",name:"guava",version:"23.0"
+	testImplementation group:"junit",name:"junit",version:"4.12"
+}
+testImplementation继承了implementation的所有依赖
+即我们的测试代码需要引入guava和junit
+我们的工程代码只需要引入guava
+```
+- Configurations.extendsFrom(Configuraion):我们可以通过这种方式实现依赖配置继承
+```
+configurations {
+    smokeTest.extendsFrom testImplementation
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13'
+    smokeTest 'org.apache.httpcomponents:httpclient:4.5.5'
+}
+```
+>#### Configuration的三个作用
+- 1.声名依赖
+- 2.作为消费者去解析依赖 = > canBeResolved=true
+- 3.作为依赖的提供者,将依赖暴露给其他projects使用 => canBeCustomed=true
+- 例子:
+```
+在例子里我们声名了一个自己的configuration,并且compileClassPath和runtimeClass继承了我们自己声名的configurtation
+使用自己的configuration来[声名依赖],这样就在运行时和编译时都可以使用这个依赖了
+configurations{
+    myConf//这里定义的configuration仅仅是一个容器,用来存放dependencies[1.声名依赖]
+    compileClasspath.extendsFrom(myConf)//compileClassPath是java plugin定义的依赖,应用于[2.解析依赖]
+    runtimeClasspath.extendsFrom(myConf)
+}
+
+dependencies {
+    myConf group:"org.apache.commons",name:"commons-lang3",version:"3.8"
+}
+```
+>#### Configuration的属性
+- [ ] 思考:为什么myConf和compileClassPath的行为不一样?
+- 我们可以看到tianhaolin和compileClassPath有行为上的区别,这些区别就是由configuration的属性导致的
+- [ ] canBeResolved:可被解析的
+- canBeResolved = true(默认值):意味着library自己可以使用
+- canBeResolved = false:一般用于声名依赖,是一个容器
+- note:
+```
+一般可被解析的Configuration至少继承一个不可被解析的Configuration
+这类似于抽象类和其子类的关系
+如Java plugin中implementation就是一个不可被解析类,它的作用是依赖声名,给其child类(这里不叫做子类,是为了区分真正的extends)继承
+```
+- [ ] canBeCustomed:可被消费的
+canBeCustomed = true(默认值):可被消费.其他工程引用该lib的时候,可以使用这个artifact
+canBeCustomed = false:不可被消费.其他的工程无法获取该Configuration声名的依赖
+```
+如:
+runtime{
+	//仅用于声名依赖
+	canBeResolved = false
+	//如果有工程引用了声名了api的lib,则该artifact可以传递过去
+	canBeConsumed = true
+}
+```
+- 总结:canBerResolved=true的Configuraion往往用于dependency管理;canBeCustomed=true的Configuraion往往用于artifact管理
+```
+dependency意味着可以自己使用的依赖
+artifact意味着可以暴露的依赖描述
+```
+- [ ] 属性组合
+- 注意:新声名一个configuration的两个属性都为true,但是是不合法的.
+Configuration role | can be resolved |  can be consumed  
+-|-|-
+Bucket of dependencies | false | false |
+Resolve for certain usage | true | false |
+Exposed to consumers | false | true |
+Legacy, don’t use | false | fasle |
+
+
+##参考资料
+https://docs.gradle.org/current/userguide/core_dependency_management.html#header dependency management
+https://docs.gradle.org/current/userguide/dependency_resolution.html#sec:conflict-resolution how gradle handles conflicts
+https://docs.gradle.org/current/userguide/declaring_dependencies.html declaring dependencies
+https://docs.gradle.org/current/dsl/org.gradle.api.artifacts.Configuration.html configuration
+https://docs.gradle.org/current/userguide/java_plugin.html#sec:java_plugin_and_dependency_management java plugin
+https://docs.gradle.org/6.3/userguide/java_library_plugin.html#sec:java_library_configurations_graph java-library plugin
+
+DefaultConfiguration
+DefaultConflictResolution
+DefaultProject
+DefaultRepositoryHanlder
+DefaultDependencyHandler
