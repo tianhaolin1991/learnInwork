@@ -301,6 +301,7 @@ class Customer {
             println "Customer has following properties"
             this.properties.sort { it.key }.each {
                 if (it.key != 'class')
+					println " " + it.key + ": " + it.value
             } 
         }
     } 
