@@ -1,0 +1,52 @@
+## java8的函数式接口
+| 接口 | 参数 | 返回类型 | 说明 |
+| ---- | ---- | ---- | ----|
+|Predicate<T>|T|boolean|输入某个值T,输出boolean值,用于判定|
+|Consumer<T>|T|void|输入某个值T,无输出,用于消费|
+|Funciton<T,R>|T|R|输入某类型值T,返回R类型值,用于转换|
+|Supplier<T>|None|T|无输入,用于生产T类型的值|
+|UnaryOperat<T>|T|T|输入某类型值,输出同类型值,用于同类型值之间的转化,如对值进行四则运算等|
+|BinaryOperator<T>|(T,T)|T|输入两个某类型的值,输出一个同类型的值,用于两个值的合并|
+### Predicate<T>
+- boolean test(T t):返回一个boolean,判断是否为真
+```
+private predicate(Predicate<String> predicate,String name){
+	return predicate.test(name)
+}
+
+psvm(){
+	boolean test = test(str->str.contains("zhang"),"zhangsan")
+	assert test
+}
+```
+- default boolean and(Predicate<? super T> other):用于连接两个断言,相当于&&
+
+### Consumer<T>
+- void accept(T t):消费t类型的数据
+```
+private static void consume(Consumer<String> consumer,String name){
+	consumer.accept(name);
+}
+
+psvm(){
+	String name = "zhangsan"
+	consume(System.out::println,name)
+}
+```
+- default Consumer<T> andThen(Consumer<? super T> after){
+	//生成新的消费者,该消费者的行为是当前消费者和after的串联
+	return (T t)->{accept(t);after.accept(t);};
+}
+```
+private static void consume(Consumer<String> consumer,String name){
+	consumer.andThen(str->System.out.println(StringUtils.reverse(str))).accept(name);
+}
+
+public static void main(String[] args) {
+	consume(System.out::println,"zhangsan");
+}
+
+结果为:
+zhangsan
+nasgnahz
+```
