@@ -4,10 +4,12 @@
 |Predicate<T>|T|boolean|输入某个值T,输出boolean值,用于判定|
 |Consumer<T>|T|void|输入某个值T,无输出,用于消费|
 |Funciton<T,R>|T|R|输入某类型值T,返回R类型值,用于转换|
+|BiFunction<T,U,R>|T,U|输入某类型只T/U,返回R类型值,用于计算|
 |Supplier<T>|None|T|无输入,用于生产T类型的值|
-|UnaryOperat<T>|T|T|输入某类型值,输出同类型值,用于同类型值之间的转化,如对值进行四则运算等|
+|UnaryOperator<T>|T|T|输入某类型值,输出同类型值,用于同类型值之间的转化,如对值进行四则运算等|
 |BinaryOperator<T>|(T,T)|T|输入两个某类型的值,输出一个同类型的值,用于两个值的合并|
 ### Predicate<T>
+- [ ] 断言,顾名思义是用来判断真假的
 - boolean test(T t):返回一个boolean,判断是否为真
 ```
 private predicate(Predicate<String> predicate,String name){
@@ -22,6 +24,7 @@ psvm(){
 - default boolean and(Predicate<? super T> other):用于连接两个断言,相当于&&
 
 ### Consumer<T>
+- [ ] 消费者,顾名思义是用于消费数据的
 - void accept(T t):消费t类型的数据
 ```
 private static void consume(Consumer<String> consumer,String name){
@@ -50,3 +53,255 @@ public static void main(String[] args) {
 zhangsan
 nasgnahz
 ```
+### Function<T,R>
+- [ ] 函数:从名称来看,是一个函数,实际它的意思是像函数一样传入T类型的入参返回R类型的结果
+- R apply(T t):执行一个函数,入参为T类型,返回值为R类型
+```
+private static String function(Function<Integer,String> func,Integer number){
+    return function.apply(number);
+}
+
+psvm(){
+    String numStr = function(num->Integer.stringValue(num),2)
+}
+结果为:
+字符串类型的2
+```
+- default <V> Function<V,R> compose(Function<? super V,? extends T> before):返回一个组合Function,传入V返回R类型
+```
+其实是传入V类型,返回T类型,再传入T类型,返回R类型
+default <V> Function<V, R> compose(Function<? super V, ? extends T> before) {
+    Objects.requireNonNull(before);
+    return (V v) -> apply(before.apply(v));
+}
+```
+- default <V> Function<T, V> andThen(Function<? super R, ? extends V> after):返回一个组合Function,传入T类型,返回V类型,与compose相反
+```
+default <V> Function<T, V> andThen(Function<? super R, ? extends V> after) {
+    Objects.requireNonNull(after);
+    return (T t) -> after.apply(apply(t));
+}
+```
+- static <T> Function<T, T> identity():返回一个验证函数,该函数的apply方法总是返回传入参数.(有什么作用?)
+```
+static <T> Function<T, T> identity() {
+    return t -> t;
+}
+```
+### BiFunction
+- [ ] 函数:可以有两个入参
+- R apply(T t, U u):同Function的apply
+- default <V> BiFunction<T, U, V> andThen(Function<? super R, ? extends V> after):返回一个BiFunction,用于T,U到V的转换,同Function的andthen
+### Supplier<T>
+- [ ] 提供者:顾名思义是用于提供某种(T)类型数据的
+- T get():提供一个T类型数据
+```
+private static String get(Supplier<String> supplier){
+    return supplier.get()
+}
+
+psvm(){
+    String str = get(-> "zhangsan")
+}
+
+结果:
+str.euqlas("zhangsan")
+```
+
+### UnaryOperator(一元运算符)
+- [ ] 一元运算符:一元运算符就是只有一个操作数的运算符,比如i++的++
+- 注意一元运算符是Function<T,T>的子接口,一般用于一元运算
+```
+@FunctionalInterface
+public interface UnaryOperator<T> extends Function<T, T> {
+
+    /**
+     * Returns a unary operator that always returns its input argument.
+     *
+     * @param <T> the type of the input and output of the operator
+     * @return a unary operator that always returns its input argument
+     */
+    static <T> UnaryOperator<T> identity() {
+        return t -> t;
+    }
+}
+``` 
+### BinaryOperator(二元运算符)
+- [ ] 二元运算符,二元运算符有两个操作数,如a+b
+- 二元运算符是BiFunction<T,T,T>的子接口,一般用于二元运算
+```
+@FunctionalInterface
+public interface BinaryOperator<T> extends BiFunction<T,T,T> {
+    /**
+     * Returns a {@link BinaryOperator} which returns the lesser of two elements
+     * according to the specified {@code Comparator}.
+     *
+     * @param <T> the type of the input arguments of the comparator
+     * @param comparator a {@code Comparator} for comparing the two values
+     * @return a {@code BinaryOperator} which returns the lesser of its operands,
+     *         according to the supplied {@code Comparator}
+     * @throws NullPointerException if the argument is null
+     */
+    public static <T> BinaryOperator<T> minBy(Comparator<? super T> comparator) {
+        Objects.requireNonNull(comparator);
+        return (a, b) -> comparator.compare(a, b) <= 0 ? a : b;
+    }
+
+    /**
+     * Returns a {@link BinaryOperator} which returns the greater of two elements
+     * according to the specified {@code Comparator}.
+     *
+     * @param <T> the type of the input arguments of the comparator
+     * @param comparator a {@code Comparator} for comparing the two values
+     * @return a {@code BinaryOperator} which returns the greater of its operands,
+     *         according to the supplied {@code Comparator}
+     * @throws NullPointerException if the argument is null
+     */
+    public static <T> BinaryOperator<T> maxBy(Comparator<? super T> comparator) {
+        Objects.requireNonNull(comparator);
+        return (a, b) -> comparator.compare(a, b) >= 0 ? a : b;
+    }
+}
+```
+
+## Stream流
+### 流的概念
+- [ ] 什么是Stream流?
+- Stream流和我们说的IO流等是不同的,但是它借用了数据流的概念.Stream流的出现是为了让开发者更好的使用==集合,数组==等对象,将关注点放在如何处理数据上,而不是API本身
+- 这种流式风格是将元素集合看做一种流,流在管道中传输,并可以在管道的节点上进行处理,如筛选,排序等
+```
++--------------------+       +------+   +------+   +---+   +-------+
++ stream of elements +-----> +filter+-> +sorted+-> +map+-> +collect+
++--------------------+       +------+   +------+   +---+   +-------+
+```
+- [ ] Stream流的特点
+- 流不会存储元素,只是对元素进行处理,所以流只能使用一次,一旦数据流过了某个节点,它就像水流一样只能走向下一个节点了(流只能使用一次,每一个节点会生成一个新的流)
+- 1.Pipelining:中间操作都会返回流对象本身。 这样多个操作可以串联成一个管道， 如同流式风格（fluent style）。 这样做可以对操作进行优化， 比如延迟执行(laziness)和短路( short-circuiting)
+- 2.内部迭代:以前对集合遍历都是通过Iterator或者For-Each的方式, 显式的在集合外部进行迭代，这叫做外部迭代。 Stream提供了内部迭代的方式， 通过访问者模式(Visitor)实现。
+- [ ] 流的生成
+- 1.Stream.of()
+- 2.集合有一个新的方法.如list.stream()
+### 流的方法
+- [ ] 流的所有方法可以分为两大类,一类叫做中间链方法,一类叫做终端操作
+- 1.中间链方法:这类方法的返回值是Stream流
+```
+注意:我们的流只能生成一次,所以我们通过若干个中间方法,将流组合成一条流水线
+注意:中间方法并不会启动流,它只是用于表示流的组成
+
+例:
+list.stream().filter(str->{
+    System.out.println(str);
+    return true;}
+)
+这里filter是一个中间方法,流并没有结束,所以并不会打印出list中所有的str
+```
+- 2.终端方法:这类方法会启动整条pipeline的执行,并且不会返回流,而是通常返回我们需要的计算结果
+>#### 中间链方法
+- Stream<T> filter(Predicate<?  super T> predicate):传入一个predicate接口,过滤掉断言为false的元素
+```
+list -> new ArrayList<String>();
+list.stram().filter(str-str.length()>3)
+过滤掉str.length()<=3的元素
+```
+- <R> Stream<T> map(Function<T,R> function):将集合中的所有元素转换为R类型
+```
+list -> new ArrayList<Integer>();
+list.stream().map(Object::toString)
+```
+- Stream<T> distinct():去重,通过Object.equals()方法
+```
+list -> new ArrayList<String>();
+list.add("a");list.add("a");list.add("b");
+list.stream().distinct()
+```
+- Stream<T> sorted():对实现Comparable接口的元素进行排序
+```
+如果元素没有实现Comaprable接口,则会抛出ClassCastException
+```
+- Stream<T> sorted(Comparator<? super T> comparator):通过comparator对元素进行排序
+```
+ArrayList<Integer> integers = new ArrayList<>();
+integers.add(1);integers.add(3);integers.add(8);integers.add(2);
+List<Integer> collect = integers.stream().sorted((o1, o2) -> o2-o1)
+实现从大到小排序
+```
+- Stream<T> peek(Consumer<? super T> action):该方法作为一个中间方法,是比较特殊的,在流中间对元素进行一次消费
+```
+public static void main(String[] args) {
+    ArrayList<Man> men = new ArrayList<>();
+    men.add(new Man("xiaowang"));
+    men.add(new Man("xiaoming"));
+    men.add(new Man("laowang"));
+    men.stream().peek(man -> man.setName(man.getName().concat("ba"))).forEach(System.out::println);
+}
+
+private static class Man{
+    private String name;
+
+    public Man(String name){
+        this.name = name;
+    }
+
+    public String getName() {
+        return name;
+    }
+    public void setName(String name){
+        this.name = name;
+    }
+
+    @Override
+    public String toString(){
+        return this.name;
+    }
+}
+
+运行结果:
+xiaowangba
+xiaomingba
+laowangba
+```
+- Stream<T> limit(long maxSize):截取流,忽略maxSize之后的元素
+- Stream<T> skip(long n):截取流,跳过前n个元素
+
+>#### 终端操作
+- void forEach(Consumer<? super T> action):对元素进行遍历
+```
+list.stream().forEach(System.out::println)
+```
+- T reduce(T identity, BinaryOperator<T> accumulator)T reduce(T identity, BinaryOperator<T> accumulator):以identity为初始值,对集合中的所有元素进行accumulator操作,最后返回一个T类型值
+```
+例:1加上所有集合中的数,求和
+Integer identity = 1;
+ArrayList<Integer> integers = new ArrayList<>();
+integers.add(1);integers.add(3);integers.add(8);integers.add(2);
+Integer reduce = integers.stream().reduce(identity, (a, b) -> a + b);
+System.out.println(reduce);
+
+结果为15
+```
+- long count():求元素个数
+```
+ArrayList<Integer> integers = new ArrayList<>();
+integers.add(1);integers.add(3);integers.add(8);integers.add(2);
+integer.stream().count();
+
+结果为4
+```
+- Optional<T> reduce(BinaryOperator<T> accumulator):对流中的各个元素依次做二元操作,返回一个Optional对象
+```
+ArrayList<Integer> integers = new ArrayList<>();
+integers.add(1);integers.add(3);integers.add(8);integers.add(2);
+Optional<Integer> reduce2 = integers.stream().reduce((a, b) -> a + b);
+System.out.println(reduce2.get());
+
+结果为14
+```
+- <R, A> R collect(Collector<? super T, A, R> collector):生成一个集合
+```
+ArrayList<Integer> integers = new ArrayList<>();
+integers.add(1);integers.add(3);integers.add(8);integers.add(2);
+List list = integers.stream().collect(Collectors.toList());
+```
+
+### 总结
+- 流的关键是掌握流的思想,可以让我们的代码更加优雅,只关注处理逻辑!!
