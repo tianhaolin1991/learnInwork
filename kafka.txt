@@ -1,0 +1,89 @@
+### 什么是kafka
+- [ ] 定义
+- Kafka是分布式的基于发布/订阅模式的消息队列,主要应用于大数据实时处理领域
+
+- [ ] 消息队列
+- 削峰:高峰期将任务缓存在消息队列中,持续处理
+- 解耦:不需要两边的处理同时在线
+- 可恢复性:当系统一部分组件失效时,不会影响到整个系统
+- 缓冲:有助于控制和优化数据流经过系统的速度,解决生产消息和消费消息速度不一致的问题
+- 异步通信:允许用户将一个消息放入队列,但并不立即处理它
+
+- [ ] 消息队列的模式
+- 1.点对点模式
+```
+特点:一对一,消费者主动获取消息,消息被消费后清除
+
+消息生产者可以对应多个消费者,但是消息只能被一个消费者消费
+```
+- 2.发布/订阅模式
+```
+特点:一对多,生产者推送数据,消费者消费数据之后不会清除消息
+
+消息生产者将消息发布到topic中,同时有多个消费者消费该消息
+
+发布/订阅模式又分为
+MQ主动的推送模式
+消费者主动的获取模式
+```
+- [ ] kafka基础架构
+- 1.Producer:消息生产者,就是向kafka broker发消息的客户端
+- 2.Consumer:消息消费者,就是向kafka broker拉取消息的客户端
+- 3.Consumer Group:多个Consumer组成一个group,消费者组内的每一个消费者负责消费不同分区的数据,一个分区只能由一个消费者消费,消费者组之间互不影响.消费者组是==逻辑上的一个订阅者==
+- 4.Broker:一台kafka服务器就是一个broker,一个集群由多个broker组成.一个broker可以容纳多个topic
+- 5.Topic:一个主题,生产者和消费者面向的都是一个主题
+- 6.Partition:一个TOPIC可以分布在不同的BROKER中,由多个Partition组成,每个partition都是一个有序的队列
+- 7.Replica:副本,Broker中维护一个TOPIC的某个partition(Leader)同时还维护了该TOPIC其他partition的follower
+- 8.Leader:每个Topic都由一个若干个Partition组成,而每一个Partition又有1到brokers数量的副本,其中只有主副本(Leader)才能对外提供服务,其他的副本(Follower)只是用来保存数据
+- 9.Follower:每个分区多个副本中的从,主要用于数据备份.当Leader发生故障时,某个follower会成为新的leader
+- 10.注册中心,kafka依赖于zookeeper,作为注册中心
+
+### kafka快速入门
+- [ ] 安装
+https://www.cnblogs.com/zikai/p/9627736.html
+- [ ] 常用命令(命令行)
+- 1.kafka-server-start:启动kafka
+```
+通常启动kafka需要指定配置文件
+bin/kafka-server-start.sh -daemon config/server.properties
+
+这里使用守护进程启动,使用jps指令可以看到正在执行的kafka
+```
+- 2.kafka-server-stop:停止kafuka服务
+```
+bin/kafka-server-stop.sh
+```
+- 3.kafka-topics :主题相关操作
+```
+1.kafka-topics --list:查看当前所有主题
+  ./kafka-topics.sh --list --zookeeper 7.223.145.184:2181 注意必须跟zk的地址
+2.kafka-topics --create:创建主题
+  ./kafka-topics.sh --create --zookeeper 7.223.145.184:2181 --topic first --partitions 2 --replication-factor 1
+  创建一个名称为first的主题,该主题有2个partition,和1个副本
+  
+  副本数量最多和Broker数量一样.副本都会存在kafka所在的磁盘log.dirs配置的位置
+3.kafka-topics --delete:删除主题
+  ./kafka-topics.sh --delete --zookeeper 7.223.145.184:2181 --topic first
+4.kafka-topics --describe:查看主题详情
+  ./kafka-topics.sh --describe --zookeeper 7.223.145.184:2181 --topic first
+```
+- 4.kafka-console-producer: 生产者
+```
+./kafka-console-producer.sh --topic first --broker-list 7.223.143.235:9092 
+创建一个生产者.链接到我们的集群(7.223.143.235:9092,此时我只有一个kafka,集群也是一样的,只需要链接到任意一台)
+此时我们就可以输入消息了
+```
+- 5.kafka-console-consumer: 消费者
+```
+1.消费
+./kafka-console-consumer.sh --topic first --bootstrap-server 7.223.143.235:9092
+./kafka-console-consumer.sh --topic first --zookeeper 7.223.145.184:2181(上古版本可用,新版本已不支持)
+为了能够实现续传,kafka记录了某个消费者group对某个主题的消费情况(消费到哪里了?)
+kafka在上古时期是通过zookeeper来存储偏移量的,存放在/consumers/[group_id]/offsets/[topic]/[broker_id-part_id]节点下
+新版本的kafka将这些消息存在kafka集群的consumer主题中,不再依赖zookeeper,该主题默认是50个分区1个副本
+2.从头消费
+./kafka-console-consumer.sh --topic first --bootstrap-server 7.223.143.235:9092 --from-beginning
+我们利用--from-beginning参数可以从头消费
+```
+### kafka架构深入
+- 3.1
