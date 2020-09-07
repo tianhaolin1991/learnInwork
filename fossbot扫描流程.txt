@@ -1,0 +1,102 @@
+一.持久化
+1.mergeLastScanTask
+遍历fileInfos对每个fileInfo进行处理
+1)转换成ScanFile对象
+2)过滤:
+	DEPENDENCYBINARY
+	!isEnableBinaryScan()&&BINARY
+	!isEnableBinaryScan()&&CENTRAL
+3)获取ResultKey
+	CIPROJECT/CLOUDBU: 
+		SOURCE(FILE_TYPE):key=FOSSID_VERSION+APISERVER_VERSION+MD5
+		OTHERS(FILE_TYPE):key=FILE_TYPE+PROJECT_ID+MD5
+	MRPROJECT:
+		SOURCE(FILE_TYPE):key=mr_+FOSSID_VERSION+APISERVER_VERSION+MD5
+		OTHERS(FILE_TYPE):key=mr_+FILE_TYPE+PROJECT_ID+MD5
+	LOCALKBPROJECT:
+		ALL(FILE_TYPE):key=local+FILE_TYPE+PROJECT_ID+MD5
+4)如果不是SOURCE,查询/同步
+a):从HBASE中通过ResultKey查询结果
+b):如果没有结果则???
+c)将文件merge到scan_index_file表中(补充sql细节)
+2.generateFileTree:生成文件树(文件夹)
+3.依赖解析(VERSIONSET/FOSSBOT)
+1)获取依赖文件
+	FOSSBOT
+		过滤FOSSBOT的FileInfos转换成对应的ScanFIles
+	VERSIONSET
+		调用云龙接口获取信息
+2)merge到scan_index_file表中
+二.扫描文件
+2.scanBinary:扫描二进制
+a)从数据库中取出二进制文件信息
+	判断isEnableBinaryScan,if true,从scan_index_file表中查询出BINARY的scanFiles
+	从scan_index_file表中查询出DEPENDENCYBINARY类型的scanFiles
+b)二进制扫描
+	从pdm库中查询出md5值对应的文件列表
+		select * from binary_md5 where md5code = #{md5} and rownum <= 10000
+		order by file_time desc
+	将结果转存Hbase
+	更新ScanFile状态
+2).源文件扫描
+1)从数据库查询到FossidHost(根据tag),启动2*FossidHosts数量的线程,开启Fossid扫描
+2)对每个ScanFile进行如下的操作
+	a)调用Fossbot的agent获取行哈希
+3)分批次(100)进行源码扫描
+	a)如果scanFile的行哈希不为空,则从fossid获取扫描结果List<FossidResult>->封装成为fileScanResult
+	b)将fileScanResult转存到hbase
+	c)updateScanFileInfo:
+		c.1)找到最匹配的信息.并更新
+		c.2)将最新的mirrorIds(每个md5匹配到多个scanResult,每个scanResult有一个mirrorId)更新
+		c.3)获取之前的mirroIds
+			c.3.1)如果scanFile.getAllMirrorIds != null return scanFile.getAllMirrorIds
+			c.3.2)如果!scanFile.getMd5().equals(scanFile.getLastMd5),从hbase中获取旧的mirrorIds
+		跟新scanFile
+	d)分批次将结果update到数据库
+	<foreach collection="scanFiles" item="scanFile" open="begin" close=";end;" separator=";">
+		update scan_${scanTask.tableIndex}_file
+		<set>
+			SCAN_STATUS = #{scanFile.scanStatus},
+			has_scan_results = #{scanFile.hasScanResults},
+			<if test='scanFile.scanResultsCount != null'>
+			  scan_results_count = #{scanFile.scanResultsCount},
+			</if>
+			<if test='scanFile.failedReason != null'>
+			  failed_reason = #{scanFile.failedReason},
+			</if>
+			<if test='scanFile.mostMachedComponentName != null'>
+			  most_mached_component_name= #{scanFile.mostMachedComponentName},
+			</if>
+			<if test='scanFile.mostMachedVersionName != null'>
+			  most_mached_version_name= #{scanFile.mostMachedVersionName},
+			</if>
+			<if test='scanFile.license != null'>
+			  license= #{scanFile.license},
+			</if>
+			<if test='scanFile.hits != null'>
+			  hits= #{scanFile.hits},
+			</if>
+			<if test='scanFile.isMatchPdm != null'>
+			  is_match_pdm = #{scanFile.isMatchPdm},
+			</if>
+			<if test='scanFile.fossidIp != null'>
+			  fossid_ip = #{scanFile.fossidIp},
+			</if>
+			<if test='scanFile.useCache != null'>
+			  use_cache = #{scanFile.useCache},
+			</if>
+			<if test="scanFile.allMirrorIds != null">
+			  all_mirror_ids = #{scanFile.allMirrorIds},
+			</if>
+			<if test="scanFile.lastAllMirrorIds != null">
+			  last_all_mirror_ids = #{scanFile.lastAllMirrorIds},
+			</if>
+			<if test="scanFile.hitsRate != null">
+			  hits_rate = #{scanFile.hitsRate},
+			</if>
+		</set>
+		where task_id = #{scanFile.taskId} and path = #{scanFile.path} and is_dir = '0' and file_type= #{scanFile.fileType}
+	</foreach>
+	
+三.确认继承
+

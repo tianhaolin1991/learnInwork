@@ -1,0 +1,57 @@
+## Learn python in hard way
+### 1.打印
+- [ ] print (var1,var2,var3)
+- python可以自动识别"和'
+```
+print ("you are the 'best' man")  => you are the 'best' man
+print ('you are the "best" man')  => you are the "best" man
+```
+- [ ] 使用格式化字符串
+```
+#%s表示字符串
+#%d表示整数
+#%f表示浮点数
+#%r所有格式
+print ("There are %s chickens"%10)
+print ("There are %d chickens and %f eggs"%(10,199))
+```
+### 2.注释
+- [ ] python使用#注释,和bash脚本一样
+### 3.变量
+- [ ] python是弱类型语言,声名变量时不需要指明类型
+```
+cars = 100
+space_in_a_car = 40.0
+drivers = 30
+passengers = 90
+cars_not_driven = cars - drivers
+cars_driven = drivers
+average_passengers_per_car = passengers / cars_driven
+```
+### 将数据传入脚本
+- [ ] 用户输入
+- 使用input()函数进行输入
+```
+print("How old are you?")
+age = input()
+#python可以将提示信息传入input函数而不需要像上面那样先用print函数打出提示
+weight = input("How tall are you?")
+```
+- [ ] 参数导入
+- 1.from aaa import bbb:导入aaa库的bbb函数,可以直接使用
+```
+#将sys库的argv函数导入
+from sys import argv
+#解包,将输入的参数argv(应该是个数组)
+#分别赋值给script,first,second,third
+#python ex13.py 1 2 3
+#script = ex13.py 默认第一个参数是脚本名称
+#first = 1,second = 2,thrid = 3
+#这个过程称为解包,输入参数个数必须与解包声名的个数相同
+script,first,second,third = argv
+
+print ("The script is called:",script)
+print ("The first variable is",first)
+print ("The second variable is",second)
+print ("The third variable is",third)
+```
