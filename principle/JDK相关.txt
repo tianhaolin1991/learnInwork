@@ -1,0 +1,45 @@
+一、常用的集合
+1.集合类的继承关系
+Collection<I>:集合接口
+	Set<I>: 一个不存在重复元素的集合(使用equals对比)
+		SortedSet<I>:定制Comparator用于排序
+			TreeSet:利用了navigationMap(extends SortedMap)的 put方法
+		HashSet:利用了HashMap的put
+	List: 一个有序的集合
+		Vector: 线程安全的,初始化10
+		ArrayList: 数组,初始化10,扩容n+(n>>1)
+		LinkedList: 双向链表
+	Map:
+		ConcurrentHashMap:
+		HashMap:实现key到value映射的集合,key不可以重复
+		SortedMap:
+		TreeMap:key是一个二叉树
+2.List
+ArrayList:底层是数组,原理见ProcessOn:JDK->集合->ArrayList
+	扩容: 
+		创建时默认容量为10,每次校验是否需要扩容
+		扩容原则newCapacity = oldCapacity + (oldCapacity >> 1);也就是10->15->22
+		如果扩容后newCapacity < 需要的Capacity,则newCapacity = minCapacity(需要的容量) 
+LinkedList:底层是双向链表,原理见ProcessOn:JDK->集合->LinkedList
+	查询:如果index小于size右移(前半段),则从head向后遍历查询
+		 如果index是后半段,则从tail向前遍历查询
+3.Map
+HashMap
+	1)Key的Hash运算:(h =key.hashCode) ^ (h >>> 16)
+	  为什么?因为需要计算key在哈希桶中的位置,该计算是通过与运算,使用高位扰动函数可以减少冲突
+	2)key位置的计算:
+	   table.length & hash(key)  => table是hash桶,是node<K,V>数组,桶中存放链表的第一位
+	3)负载因子(DEFAULT_LOAD_FACTOR)默认为0.75
+	  table长度默认为16,每次resize()长度乘2
+	  TREEIFY_THRESHOLD的默认为8,哈希桶的每个桶中链表长度大于8则会变为红黑树
+	  红黑树是非平衡树,但是到根节点的最大距离最多是最小距离的二倍.其插入性能高
+	4)map的哈希桶扩容后不会再减容
+TreeMap
+	1)TreeMap会根据comparator来进行key排序(二叉树)
+HashTable
+	1)使用synchroinzed关键字来实现同步
+ConcurrentHashMap
+	1)Key的Hash运算: (h ^ (h >>> 16)) & 0x7fffffff;在HashMap基础上将首位变为0
+    2)过程详见ProcesOn:https://www.processon.com/diagraming/5f561936e0b34d6f59e45975
+
+

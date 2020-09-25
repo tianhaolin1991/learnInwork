@@ -1,7 +1,16 @@
 一、什么是面向对象
 1.数据结构+算法
 2.继承/封装/多态
-二、数组和链表的区别
-1)数组的地址是连续的,查询的时间复杂度为O(1),但插入删除比较消耗资源
-2)链表的地址可以是不连续的,由节点组成,前驱存储了后继的地址,查询时间复杂度为O(n),但删除/增加节点效率较高
-  可以使用跳表来改善为O(log2n)
+二、强引用,软引用,弱引用有什么区别
+
+三、Java内存模型
+四、什么是ThreadLocal.以及其工作原理
+1.ThreadLocal是线程隔离的用于存放本地数据的容器
+2.其原理是每一个Thread中都保存了一个ThreadLocalMap,其key是ThreadLocal,Value是对应的值
+  ThreadLocal<V> threadlocal = new ThreadLocal();
+  threadlocal.set(value);//将Entry<threadlocal,value>放入ThreadLocalMap
+五、sychronized与lock有什么区别
+1)sychronized与Lock的实现有区别
+2)sychronized锁升级后不会降级,所以不适合潮汐场景
+3)sychronized锁是非公平锁,而Lock可以选择公平与非公平锁
+4)Lock提供了更加细粒度的等待(Condition)
