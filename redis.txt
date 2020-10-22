@@ -1,0 +1,54 @@
+第一章:初识Redis
+一、redis的数据结构
+在redis中所有的数据都是以key,value存放的,而value值有5种数据结构
+STRING/LIST/SET/HASH/ZSET(有序集合)
+注意:REDIS中的很多操作VALUE可以是个列表,使用"空格"隔开
+1.STRING:可以是字符串、整数或浮点数;可以对整数和浮点数执行自增或者自减,对整个字符串或字符串中的一部分执行操作
+1)SET KEY VALUE:添加一个键值对         
+	OPS: SET string-key HelloWorld
+	RET: OK  --返回OK
+2)GET KEY:根据KEY获取值               
+	OPS: GET string-key
+	RET: HelloWorld
+3)DEL KEY:删除一个键值对(通用操作)	   
+	OPS: DEL string-key 
+	RET: OK  --返回OK
+
+2.LIST:一个列表,列表上的每个节点都是一个STRING
+1)LPUSH/RPUSH KEY VALUE:从链表的两端PUSH元素
+	OPS: LPUSH list-key item1
+	RET: 1   -- 返回操作后list中的元素个数
+	OPS: LPUSH list-key item2 item3 item4  --一次插入多个,用空格隔开
+	RET: 4   -- 返回操作后list中的元素个数
+2)LPOP/RPOP KEY:从列表的两端POP并返回元素(空会返回nil)
+	OPS: LPOP list-key  --执行前: item4 item3 item2 item1
+	RET: "item4"		--执行后: item3 item2 item1
+	OPS: RPOP list-key  --执行前: item3 item2 item1
+	RET: "item1"        --执行后: item3 item2
+3)LRANGE KEY LOW HIGH:取出列表中[LOW~HIGH]的值,注意是闭区间,如果HIGH=-1则取出[LOW~MAX]的值
+	OPS: LRANGE list-key 0 0 --集合元素:item3 item2
+	RET: "item3"
+	OPS: LRANGE list-key 0 -1
+	RET: 1)"item3"
+	     2)"item2"
+4)LINDEX KEY INDEX:查询列表中某个INDEX的值
+	OPS: LINDEX list-key 1 --执行前: item3 item2
+	RET: "item3"           --执行后: item3 item2
+		 
+3.SET:UNORDERD SET,无序不重复集合
+1)SADD KEY VALUE:向KEY指向的集合中添加元素
+	OPS: SADD set-key node1 node2
+	RET: 2
+2)SMEMBERS KEY: 获取key中的值
+	OPS: SMEMBERS set-key
+	RET: 1)"node2"
+	     2)"node1"
+3)SISMEMBER KEY VALUE:判断VALUE是否是改key对应的集合的一员,返回1/0
+	OPS: SISMSMBER set-key node3
+	RET: 0
+4)SREM KEY VALUE:移除集合中的元素,返回被移除的元素量
+	OPS: SREM set-key node1 node2
+	RET: 2
+	
+4.HASH:散列,一个FIELD-VALUE映射容器;其值可以是String和数字
+1)HSET
