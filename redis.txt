@@ -1,54 +1,190 @@
-第一章:初识Redis
+##初识Redis
 一、redis的数据结构
 在redis中所有的数据都是以key,value存放的,而value值有5种数据结构
 STRING/LIST/SET/HASH/ZSET(有序集合)
 注意:REDIS中的很多操作VALUE可以是个列表,使用"空格"隔开
 1.STRING:可以是字符串、整数或浮点数;可以对整数和浮点数执行自增或者自减,对整个字符串或字符串中的一部分执行操作
-1)SET KEY VALUE:添加一个键值对         
-	OPS: SET string-key HelloWorld
-	RET: OK  --返回OK
-2)GET KEY:根据KEY获取值               
-	OPS: GET string-key
-	RET: HelloWorld
-3)DEL KEY:删除一个键值对(通用操作)	   
-	OPS: DEL string-key 
-	RET: OK  --返回OK
-
+	1)SET KEY VALUE:添加一个键值对         
+		OPS: SET string-key HelloWorld
+		RET: OK  --返回OK
+	2)GET KEY:根据KEY获取值               
+		OPS: GET string-key
+		RET: HelloWorld
+	3)DEL KEY:删除一个键值对(通用操作)	   
+		OPS: DEL string-key 
+		RET: OK  --返回OK
+	4)INCR/DECR KEY : 自增/自减(只对int值有效)
+	  INCRBY/DECRBY KEY VALUE:自增/自减若干值(只对int值有效)
+	  INCRBYFLOAT key value:存储值上加上浮点amount,在redis2.6之后可用
+	5)APPEND KEY VALUE:将value追加到指定的key值末尾
+	6)GETRANGE KEY VALUE START END:获取一个由偏移量start至end范围内所有字符组成的子串
+	7)SETRANGE KEY OFFSET VALUE:将start偏移量开始的子串设置为给定值
+ 
 2.LIST:一个列表,列表上的每个节点都是一个STRING
-1)LPUSH/RPUSH KEY VALUE:从链表的两端PUSH元素
-	OPS: LPUSH list-key item1
-	RET: 1   -- 返回操作后list中的元素个数
-	OPS: LPUSH list-key item2 item3 item4  --一次插入多个,用空格隔开
-	RET: 4   -- 返回操作后list中的元素个数
-2)LPOP/RPOP KEY:从列表的两端POP并返回元素(空会返回nil)
-	OPS: LPOP list-key  --执行前: item4 item3 item2 item1
-	RET: "item4"		--执行后: item3 item2 item1
-	OPS: RPOP list-key  --执行前: item3 item2 item1
-	RET: "item1"        --执行后: item3 item2
-3)LRANGE KEY LOW HIGH:取出列表中[LOW~HIGH]的值,注意是闭区间,如果HIGH=-1则取出[LOW~MAX]的值
-	OPS: LRANGE list-key 0 0 --集合元素:item3 item2
-	RET: "item3"
-	OPS: LRANGE list-key 0 -1
-	RET: 1)"item3"
-	     2)"item2"
-4)LINDEX KEY INDEX:查询列表中某个INDEX的值
-	OPS: LINDEX list-key 1 --执行前: item3 item2
-	RET: "item3"           --执行后: item3 item2
+	1)LPUSH/RPUSH KEY VALUE:从链表的两端PUSH元素
+		OPS: LPUSH list-key item1
+		RET: 1   -- 返回操作后list中的元素个数
+		OPS: LPUSH list-key item2 item3 item4  --一次插入多个,用空格隔开
+		RET: 4   -- 返回操作后list中的元素个数
+	2)LPOP/RPOP KEY:从列表的两端POP并返回元素(空会返回nil)
+		OPS: LPOP list-key  --执行前: item4 item3 item2 item1
+		RET: "item4"		--执行后: item3 item2 item1
+		OPS: RPOP list-key  --执行前: item3 item2 item1
+		RET: "item1"        --执行后: item3 item2
+	3)LRANGE KEY LOW HIGH:取出列表中[LOW~HIGH]的值,注意是闭区间,如果HIGH=-1则取出[LOW~MAX]的值
+		OPS: LRANGE list-key 0 0 --集合元素:item3 item2
+		RET: "item3"
+		OPS: LRANGE list-key 0 -1
+		RET: 1)"item3"
+			 2)"item2"
+	4)LINDEX KEY INDEX:查询列表中某个INDEX的值
+		OPS: LINDEX list-key 1 --执行前: item3 item2
+		RET: "item3"           --执行后: item3 item2
+	5)LTRIME KEY START END:对列表进行修剪,只保留从start偏移量到end偏移量范围内的元素,start和end会被保留
+	6)RPOPLPUSH SOURCE-KEY DEST-KEY:
+		从source-key列表最右端弹出元素,并将这个元素推入dest-key最左端,并向用户返回这个元素
+	7)阻塞式操作:
+	  7.1)BLPOP KEY TIME-OUT:从第一个非空队列表中弹出位于最左端的元素,或者在TIME-OUT秒之内阻塞并等待可弹出元素
+	  7.2)BRPOP KEY TIME-OUT:从第一个非空队列表中弹出位于最右端的元素,或者在TIME-OUT秒之内阻塞并等待可弹出元素
+	  7.3)BRPOPLPUSH SOURCE-KEY DEST-KEY TIME-OUT:
+		从source-key列表最右端弹出元素,并将这个元素推入dest-key最左端,并向用户返回这个元素
+		如果SOURCE-KEY元素为空,name在timeout秒之内阻塞并等待可弹出的元素出现
 		 
 3.SET:UNORDERD SET,无序不重复集合
-1)SADD KEY VALUE:向KEY指向的集合中添加元素
-	OPS: SADD set-key node1 node2
-	RET: 2
-2)SMEMBERS KEY: 获取key中的值
-	OPS: SMEMBERS set-key
-	RET: 1)"node2"
-	     2)"node1"
-3)SISMEMBER KEY VALUE:判断VALUE是否是改key对应的集合的一员,返回1/0
-	OPS: SISMSMBER set-key node3
-	RET: 0
-4)SREM KEY VALUE:移除集合中的元素,返回被移除的元素量
-	OPS: SREM set-key node1 node2
-	RET: 2
-	
+	1)SADD KEY VALUE:向KEY指向的集合中添加元素
+		OPS: SADD set-key node1 node2
+		RET: 2
+	2)SMEMBERS KEY: 获取key中的值
+		OPS: SMEMBERS set-key
+		RET: 1)"node2"
+			 2)"node1"
+	3)SISMEMBER KEY VALUE:判断VALUE是否是该key对应的集合的一员,返回1/0
+		OPS: SISMSMBER set-key node3
+		RET: 0
+	4)SREM KEY VALUE:移除集合中的元素,返回被移除的元素量
+		OPS: SREM set-key node1 node2
+		RET: 2
+	5)SCARD KEY:返回集合所包含的元素数量
+	6)SRANDMEBER KEY [COUNT]:随机返回一个或多个元素.
+		当count为正,返回的随机元素不会重复;当count为负数,随机元素可能会重复
+	7)SPOP KEY:随机地移除集合中的一个元素,并返回被移除的元素
+	8)SMOVE SOURCE-KEY DEST-KEY ITEM:
+		如果SOURCE-KEY中包含ITEM,则移除,并将ITEM添加到集合DEST-KEY中
+		成功返回1,失败返回0
+	9)集合运算
+		9.1) SDIFF KEY [KEY ...]:
+			返回存在于第一个集合,但不存在于其他集合中的元素
+		9.2) SDIFFSTORE DEST-KEY KEY [KEY ...]:
+			将那些存在于第一个集合但并不存在于其他集合中的元素存储到dest-key中
+		9.3) SINTER KEY [KEY...]:求交集
+		9.4) SINTERSTORE DEST-KEY KEY [KEY...]:求交集并存入DEST-KEY
+		9.5) SUNION KEY [KEY ...]:求并集
+		9.6) SUNIONSTORE DEST-KEY KEY [KEY...]:求并集并存入DEST-KEY
 4.HASH:散列,一个FIELD-VALUE映射容器;其值可以是String和数字
-1)HSET
+	1)HSET KEY FILED VALUE:将(FILED,VALUE)对存入KEY中
+	2)HGET KEY FILED:获取KEY的FILED值
+	3)HDEL KEY FILED [FIELD...]:删除(FILED,VALUE)键值对,可以批量删除
+	4)HGETALL KEY:获取KEY的所有键值对
+	5)HLEN KEY:返回散列包含的键值对数量
+	6)HMGET KEY FIELD [FIELD...]:批量获取
+	7)HMSET KEY FIELD VALUE [FILED VALUE...]:批量对FILED设置值
+5.ZSET:有序集合,和散列类似,有序集合提供成员与分值之间的映射
+	1)ZADD KEY SCORE MEMBER [SCORE MEMBER ...]:将带有给定分值的成员添加到有序集合里面
+	2)ZREM KEY MEMBER [MEMBER ...]:从集合中移除给定的成员,并返回被移除成员的数量
+	3)ZCARD KEY:返回有序集合包含的成员数量
+	4)ZINCRBY KEY INCREMENT MEMBER:将成员的分值加上INCREMENT
+	5)ZCOUNT KEY MIN MAX:返回介于min和max之间分值的成员数量
+	6)ZRANK KEY MEMBER:返回成员MEMBER在有序集合中的排名(从小到大)
+	  ZREVRANK KEY MEMBER:返回成员MEMBER在有序集合中的排名(从大到小,DESC)
+	7)ZSCORE KEY MEMBER:返回成员member的分值
+	8)ZRANGE KEY START STOP [WITHSCORES]:返回排名介于start和stop之间的成员,如果给定了WITHSCORES,命令会一并返回分值(从小到大)
+	  ZREVRANGE KEY START STOP [WITHSCORES]:返回排名介于start和stop之间的成员,如果给定了WITHSCORES,命令会一并返回分值(从大到小)
+	9)ZRANGEBYSCORE KEY MIN MAX [WITHSCORES]:返回(分值)介于MIN和MAX之间的成员,如果给定了WITHSCORES,命令会一并返回分值(从小到大)
+	  ZREVRANGEBYSCORE KEY MAX MIN [WITHSCORES]:返回(分值)介于MIN和MAX之间的成员,如果给定了WITHSCORES,命令会一并返回分值(从大到小)
+二、发布订阅
+1.发布命令
+1)PUBLISH CHANNEL MESSAGE : 向给定频道发送消息
+三、redis事务
+有时候为了处理多个结构我们需要向Redis发送多个命令.就需要使用事务
+事务可以让一个客户端在不被其他客户端打断的情况下执行多个命令.和关系型数据库不同.Redis事务并不能回滚.它只是保证了数据在事务中只被一个客户端处理(类似于锁)
+1.如何开启事务
+MULTI
+操作1
+操作2
+操作3
+EXEC
+redis会从MULTI命令开始,将操作一个个放入队列中.直到收到客户端发送的EXEC命令
+
+##数据安全与性能保障
+一、持久化选项
+1.RDB(快照)
+1)什么是快照:
+	根据配置,快照将被写入DBFILENAME选项指定的文件中
+2)如何创建快照
+	a.客户端向Redis发送BGSAVE命令来创建一个快照.Redis会调用fork来创建一个子进程,子进程负责将快照写入硬盘
+	b.客户端向Redis发送SAVE命令来创建一个快照.接到SAVE命令的Redis主进程在创建完快照之前不再响应其他命令
+		所以除非内存不足,我们不会使用SAVE命令去执行
+	c.如果server端设置了save选项,比如save 60 10000,从Redis最近一次创建赶快找之后开始算起,当"60秒内有10000次写入"这个条件被满足时,
+		那么Redis会自动触发BGSAVE命令
+	  如果server端设置了多save选项,那么当任意一个save配置的条件被满足时,Redis就会触发一次BGSAVE命令
+	d.Redis服务器连接到另外一个Redis服务器,并向对方发送SYNC命令来开始一次复制操作的时候
+		如果当前主服务器没有在执行BGSAVE操作.那么主服务器就会执行BGSAVE命令,之后再将副本传送给从服务器
+	f.当Redis通过SHUTDOWN命令接收到关闭服务器请求时.
+3)RDB的优势与劣势
+	优势:IO少,效率高
+	劣势:如果系统发生崩溃,有可能会丢失一部分数据
+2.AOF(append-only file)
+1)什么是AOF
+	AOF是只追加文件的一种持久化策略.AOF持久化会将被执行的写命令写到AOF文件的末尾,来记录变化(像日志一样)
+	AOF持久化可以通过appendonly yes设置选项来打开
+2)AOF选项:
+	a)always:每个Redis写命令都要同步写入硬盘.这样做会严重降低Redis的速度
+	b)everysec:每秒执行一次同步,显式地将多个写命令同步到硬盘
+	c)no:让操作系统来决定应该何时同步
+	```
+	向硬盘写入文件(file.write())有3个步骤:
+		1.写入的内容首先会被存储到缓冲区
+		2.操作系统会在将来某个时候将缓冲区存储的内容写入到硬盘
+		3.数据存入硬盘(此时数据才真正安全了)
+	
+	用户可以调用file.flush()方法来请求操作系统尽快的将缓冲区存储的数据写入到硬盘里面.但具体何时操作依然取决于操作系统
+	用户还可以命令操作系统将文件同步(sync)到硬盘,同步操作会一直阻塞到指定的文件被写入硬盘为止
+	```
+3)AOF的优劣
+	优势:尽可能保证数据的完整性
+	劣势:如果使用AOF的持久化策略,redis的性能会大大降低
+4)如何选用
+	如果可以接受一部分数据丢失,推荐使用everysec选项
+5)AOF的重写与压缩
+	如果我们使用AOF的everysec,能得到好的性能,为什么不全部使用呢?
+	随着redis的运行,AOF文件会越来越大.这时候需要对AOF文件进行压缩.此时也是需要消耗性能的
+	```
+	用户可以向Redis发送BEREWRITEAOF命令去重写AOF
+	也可以通过设置
+		auto-aof-rewrite-percentage和auto-aof-rewrite-min-size选项来自动执行BGREWRITEAOF
+	```
+二、复制
+复制可以让其他服务器拥有一个不断更新的数据副本,从而形成一个高可用的集群
+1.主从服务器复制步骤
+	主服务器:
+		1)等待从服务器的SYNC命令
+		2)开始执行BGSAVE,并使用缓冲区记录BGSAVE之后执行的所有写命令
+		3)BGSAVE执行完毕,向从服务器发送快照文件
+		4)快照文件发送完毕,开始向从服务器发送存储在缓冲区里面的写命令
+		5)缓冲区存储的写命令发送完毕.从现在开始每执行一个写命令,就向从服务器发送相同的写命令
+	从服务器:
+		1)连接(或重新连接)主服务器,发送SYNC命令
+		2)根据配置选项来决定是继续使用现有的数据来处理客户端的请求还是直接向客户端返回错误
+		3)丢弃所有的旧数据,开始载入主服务器发送来的快照文件
+		4)完成对快照文件的解释操作,向往常一样开始接受命令请求
+		5)执行主服务器发来的所有存储在缓冲区中的写命令;并从现在开始,接收并执行主服务器传来的每个写命令
+注:	Redis在主从复制期间会尽可能的处理接收到的命令请求,但是如果主从服务器之间的网络带宽不足,
+	或主服务器没有足够的内存来创建子进程和创建记录写命令的缓冲区,那么redis的命令请求效率就会受到影响
+	因此实际中最好还是让主服务器只使用50%-65%的内存,留下来的内存用于执行BGSAVE命令和创建记录写命令的缓冲区
+2.如何设置主从服务器
+	1.主服务:不需要设置
+	2.从服务器:
+		a.通过配置项SLAFEOF host port来将一个Redis服务器设置为从服务器
+		b.用户也可以通过SLAVEOF命令来实现这一点
+			注意:从服务器会清空自己的数据
+		
