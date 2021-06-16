@@ -1,0 +1,329 @@
+## 第七章:排序
+- 本章我们假设数组比较小,我们的排序能够在主存中完成
+- 当然必须在磁盘上完成的排序(外部排序)也相当重要,我们在末尾进行讨论
+### 插入排序
+- 插入排序是最简单的排序算法之一
+>#### 算法
+- 插入排序由N-1次排序组成,对于第p(1<=p<=N-1)次,插入排序保证从位置0到位置p上的元素都为已排序状态
+```text
+原始数组    34 8 64 51 32 21  移动的位置
+ p=1次     8 34 64 51 32 21     1
+ p=2次     8 34 64 51 32 21     0
+ p=3次     8 34 51 64 32 21     1
+ p=4次     8 32 34 51 64 21     3
+ p=5次     8 21 32 34 51 64     4
+```
+- 插入排序的策略是,在第p次,我们将位置p上的元素向左移动,直到在它前p+1个元素中找到正确的位置
+```java
+public class InsertSortUniform<T extends Comparable<T>> {
+    public static void main(String[] args) {
+        InsertSortUniform<Integer> insertSort = new InsertSortUniform<>();
+        List<Integer> list = Arrays.asList(34, 8, 64, 51, 32, 21);
+        insertSort.sort(list);
+        System.out.println(list);
+    }
+    
+    public void sort(List<T> list) {
+        for (int i = 1; i < list.size(); i++) {
+            T tmp = list.get(i);
+            int index = i;
+            while (index > 0 && tmp.compareTo(list.get(index - 1)) < 0) {
+                list.set(index, list.get(index -1));
+                index--;
+            }
+            list.set(index,tmp);
+        }
+    }
+}
+
+```
+>#### 插入排序算法分析
+- 由于每一次插入都需要N次迭代,因此插入排序为O(N^2)
+### 希尔排序
+- 希尔排序算法是首个突破O(N^2)的排序方法
+>#### 算法
+- 希尔排序的核心思想是通过一个增量序列{h1,h2,...,ht}来完成排序,每一次排序使用一个元素(从大到小),如hk排序后,我们对集合中的所有元素都有a[i]<=a[i+k]
+```text
+只要h1=1,那么任何增量序列都是可行的,但是总有些增量序列的时间复杂度更好
+
+增量序列:{1,3,5}
+
+原始数组:  81 94 11 96 12 35 17 95 28 58 41 75 15
+5排序后:   35 17 11 28 12 41 75 15 96 58 81 94 95
+3排序后:   28 12 11 35 15 41 58 17 94 75 81 96 95
+1排序后:   11 12 15 17 28 35 41 58 75 81 94 95 96
+```
+- 希尔排序的一个流行(但不是很好)的选择是h(1)=N/2向下取整和h(k)=h(k+1)/2向下取整
+```text
+希尔排序的增量序列的选择对时间复杂度影响巨大,并且不好证明,这里我们了解一下即可.
+```
+- 希尔排序的最坏情形为theta(N^2)
+### 堆排序
+- 优先队列可以用于O(NlogN)的排序
+>#### 算法
+- 将数组构造成一个堆
+- 再依次通过deleteMin方法来弹出最小元素以完成排序
+```java
+package sort;
+
+import java.util.Arrays;
+
+public class HeapSort<T extends Comparable<T>> {
+
+    public static void main(String[] args) {
+        HeapSort<Integer> heapSort = new HeapSort<>();
+        Integer[] integers = new Integer[]{34, 8, 64, 51, 32, 21};
+        heapSort.sort(integers);
+        System.out.println(Arrays.asList(integers));
+    }
+
+    /**
+     * get leftChild index in arr
+     *
+     * @param i root index
+     * @return leftChild Index
+     */
+    private int leftChild(int i) {
+        return 2 * i + 1;
+    }
+
+    /**
+     * 下滤操作,将某个元素进行下滤
+     * 构造大顶堆
+     *
+     * @param arr heap arr
+     * @param i   index of ele
+     * @param n   length of arr
+     */
+    private void percDown(T[] arr, int i, int n) {
+        int child;
+        T tmp;
+        for (tmp = arr[i]; leftChild(i) < n; i = child) {
+            child = leftChild(i);
+            //找到ele两个子节点,从中找到较小的那个
+            if (child != n - 1 && arr[child].compareTo(arr[child + 1]) < 0) {
+                child++;
+            }
+            //比较child和i,如果i较小,则互换
+            //如果i较大,则保留
+            if (tmp.compareTo(arr[child]) < 0) {
+                arr[i] = arr[child];
+            } else {
+                break;
+            }
+        }
+        arr[i] = tmp;
+    }
+
+    public void sort(T[] arr) {
+        //build heap
+        //从下向上构造大顶堆
+        for (int i = arr.length / 2 - 1; i >= 0; i--) {
+            percDown(arr, i, arr.length);
+        }
+        for (int i = arr.length - 1; i >= 0; i--) {
+            //deleteMax
+            swapReferences(arr, 0, i);
+            //precDown
+            percDown(arr, 0, i);
+        }
+    }
+
+    private void swapReferences(T[] arr, int i, int n) {
+        T tmp = arr[n];
+        arr[n] = arr[0];
+        arr[0] = tmp;
+    }
+
+}
+```
+>#### 堆排序分析
+- 构建堆最多使用2N次比较,其时间复杂度为O(N)
+- 每一次弹出最小值使用的时间为O(logN)
+- 故总时间复杂度为O(N)+O(N*logN) = O(N*logN)
+
+>#### 归并排序(MergeSort)
+- 归并排序以O(NlogN)最坏时间运行,而所使用的比较次数几乎是最优的
+>#### 算法描述
+- 归并排序的基本操作是合并两个已排序的表(一次合并的时间复杂度为N)
+- 递归的将前后半部分数据归并,得到排序后的两部分数据
+```text
+例如:要将8个元素组24,13,26,1,2,27,38,15排序
+    递归的将前4个数据和后四个数据递归排序
+    该算法是经典的分治策略,它将问题分成小的问题然后递归求解(分),然后将分的阶段解得的各答案修补在一起(治)
+```
+- 算法实现
+```java
+public class MergeSort<T extends Comparable<T>> {
+
+    public static void main(String[] args) {
+        MergeSort<Integer> mergeSort = new MergeSort<>();
+        Integer[] arr = new Integer[]{24, 13, 26, 1, 2, 27, 38, 15};
+        mergeSort.sort(arr);
+    }
+
+    public void sort(T[] arr) {
+        T[] tmpArr = (T[]) new Comparable[arr.length];
+        mergeSort(arr, tmpArr, 0, arr.length - 1);
+    }
+
+    private void mergeSort(T[] arr, T[] tmpArr, int left, int right) {
+        if (left >= right) {
+            return;
+        }
+        int middle = (right + left) / 2;
+        mergeSort(arr, tmpArr, left, middle);
+        mergeSort(arr, tmpArr, middle + 1, right);
+        merge(arr, tmpArr, left, right);
+    }
+
+    private void merge(T[] arr, T[] tmpArr, int left, int right) {
+        int middle = (left + right) / 2;
+        int indexLeft = left;
+        int indexRight = middle + 1;
+        int arrIndex = left;
+        while (indexLeft <= middle && indexRight <= right) {
+            if (arr[indexLeft].compareTo(arr[indexRight]) < 0) {
+                tmpArr[arrIndex++] = arr[indexLeft++];
+            } else {
+                tmpArr[arrIndex++] = arr[indexRight++];
+            }
+        }
+
+        while (indexLeft <= middle) {
+            tmpArr[arrIndex++] = arr[indexLeft++];
+        }
+        while (indexRight <= right) {
+            tmpArr[arrIndex++] = arr[indexRight++];
+            indexLeft++;
+        }
+        if (right + 1 - left >= 0) System.arraycopy(tmpArr, left, arr, left, right + 1 - left);
+    }
+}
+```
+### 快速排序
+- 快速排序的平均运行时间是O(NlogN),最坏的情形是O(N^2)
+- 快速排序也是一种递归算法,通常来说效率比归并排序要高
+>#### 算法描述
+- 快速排序算法的思想是随便选取一项,然后形成三组,小于被选项的一组,等于被选项的一组,和大于被选项的一组,然后对一三组排序
+```text
+如果表中存在大量重复项,快速排序的计算表现非常优秀
+```
+- 选取枢纽元
+```text
+中间一组的元素被称为枢纽元
+枢纽元的选取会充分影响快速排序的时间复杂度
+
+1.将第一个元素作为枢纽元
+该做法在已排序的输入会表现非常糟糕,不推荐
+2.随机选取枢纽元
+该做法是一种非常安全的策略
+3.三数中值分割
+选取数组的第一个/最后一个/中间一个 三个数字,取其中的中位数进行分割
+```
+- 小数组
+```text
+对于很小的数组N<=20,快速排序不如插入排序
+```
+- 算法实现
+```java
+package sort;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class QuickSort<T extends Comparable<T>> {
+
+    public static void main(String[] args) {
+        QuickSort<Integer> quickSort = new QuickSort<>();
+        Integer[] arr = new Integer[]{24, 13, 26, 1, 2, 27, 38, 15};
+        quickSort.sort(arr);
+    }
+
+    private void sort(T[] arr) {
+        quickSort(arr, 0, arr.length - 1);
+    }
+
+    private void quickSort(T[] arr, int start, int end) {
+        if (start >= end) {
+            return;
+        }
+        //查找中位数(选取3个数的中位数)
+        //同时将中位数换到最后一位(便于使用)
+        T middleNum = findMiddle(arr, start, end);
+        //双指针
+        int indexLeft = start;
+        int indexRight = end - 1;
+        for (; ; ) {
+            while (arr[indexLeft++].compareTo(middleNum) < 0) {
+            }
+            while (arr[indexRight--].compareTo(middleNum) > 0) {
+            }
+            if (--indexLeft < ++indexRight) {
+                swap(arr, indexLeft, indexRight);
+            } else {
+                break;
+            }
+        }
+        swap(arr, indexLeft, end);
+        quickSort(arr, start, indexLeft - 1);
+        quickSort(arr, indexLeft + 1, end);
+    }
+
+    private T findMiddle(T[] arr, int left, int right) {
+        int middle = (left + right) / 2;
+
+        if (arr[left].compareTo(arr[middle]) > 0) {
+            swap(arr, left, middle);
+        }
+        if (arr[middle].compareTo(arr[right]) > 0) {
+            swap(arr, middle, right);
+        }
+        if (arr[left].compareTo(arr[middle]) > 0) {
+            swap(arr, left, middle);
+        }
+        swap(arr, middle, right);
+        return arr[right];
+    }
+
+    private void swap(T[] arr, int left, int middle) {
+        T tmp = arr[left];
+        arr[left] = arr[middle];
+        arr[middle] = tmp;
+    }
+}
+```
+### 桶排序
+- 一种思维巧妙的数组,其时间复杂度为O(M+N)
+```text
+桶排序有如此高的时间复杂度是有要求的:
+1)入参必须是有界的正整数,其最大值为M
+2)需要一个额外的数组(桶),其大小为M
+```
+- 桶排序的算法如下,输入数据Ai,并将桶相应的位置bucket[Ai] + 1,最后将桶中的数据按顺序打印
+```text
+如 6322195 确定了桶的大小为9
+初始化桶:[0,0,0,0,0,0,0,0,0,0]
+入参6:  [0,0,0,0,0,0,1,0,0,0]
+入参3:  [0,0,0,1,0,0,1,0,0,0]
+入参2:  [0,0,1,1,0,0,1,0,0,0]
+入参2:  [0,0,2,1,0,0,1,0,0,0]
+入参1:  [0,1,2,1,0,0,1,0,0,0]
+入参9:  [0,1,2,1,0,0,1,0,0,1]
+入参5:  [0,1,2,1,0,1,1,0,0,1]
+ 打印:  1223569
+```
+- 桶排序一般用于M小,N大的情况
+### 基数排序
+- 基数排序是对桶排序的一种升级
+- 基数排序的思路是根据位数进行多次桶排序,其时间复杂度我为你O(p(N+b))
+```text
+初始元素   064 008 216 512 027 729 000 001 343 125
+按个位排序 000 001 512 343 064 125 216 027 008 729
+按十位排序 000 001 008 512 216 125 027 729 343 064
+按百位排序 000 001 008 027 064 125 216 343 512 729
+```
+### 外部排序
+
+### 总结
+>#### 内排序算法
