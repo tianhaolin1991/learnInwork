@@ -380,3 +380,399 @@ MappedByteBuffer map(int mode，long position，long size)
         READ_WRITE
         PRIVATE
 ```
+## 第三章、通道
+
+### 3.0预备
+
+- 通道是java.nio的第二个主要创新.Channel用于字节缓冲区和位于通道另一侧的实体之间有效的传输数据
+- 多数情况下通道和文件描述符(File Descriptor)和文件句柄(File Handle)
+
+```text
+linux中一切都可以看作是文件,不仅包括普通的文件和目录,还包括管道、FIFO、Socket、终端、设备等
+```
+
+> #### 文件描述符
+
+- [ ] 文件描述符(file descriptor)
+- 每一个文件描述符会与一个打开的文件相对应,不同的文件描述符也可以指向同一个文件
+
+```text
+系统为每一个进程都维护了一个文件描述符表,该表的值都是从0开始的,所以在不同的进程中你会看到相同的文件描述符
+```
+
+- 文件描述符是一个较小的非负整数,并且0,1,2这三个描述符总是默认分配给标准输入、标准输出和标准错误
+
+```text
+这就是nohup 命令中 nohup java -jar xxxx.jar > myLog.log 2 >&1 中的2和1的由来
+```
+
+- 文件描述符每个条目包括两个部分,一个是控制该描述符的标记(flags),二是指向<font color='red'>open file table</font>对应条目的指针 - [ ]系统级别的打开表 & 文件句柄
+- 内核会维护系统内所有打开的文件及其相关信息,该结构被称为打开文件表(open file table)
+
+```text
+表中的每个条目维护以下信息:
+文件偏移量,read()/write()/lseek()函数都会修改该值
+打开文件时的状态和权限标记(通过open()函数的参数传入)
+文件的访问模式(只读、读写、只写等)
+指向其对应的inode对象的指针.(内核还会维护一个系统级别的inode表)
+```
+
+- 文件句柄:打开文件表中的一行称为一条文件描述(file description),也叫做文件句柄
+- [ ] inode表
+- inode主要存放一些文件信息,文件类型(如常规文件、Socket)、文件的各种属性(大小、不同类型操作相关的时间戳等)
+- inode表中的一条记录代表一个文件,是文件的指针,所以文件句柄是指针的指针
+- [ ] 文件描述符、文件句柄、I-Node索引节点的关系
+- 每个进程维护一套文件描述符,不同的文件描述符可能会指向系统级打开文件表中的一条记录(文件句柄)
+- 文件句柄指向I-Node索引表中的一条记录
+
+```text
+不同的文件句柄也会指向同一个索引表记录,也就是同一个文件
+这种情况可能是不通进程对同一个文件发起open()导致的
+也可能是同一个进程打开了两次同一个文件
+```
+
+- 文件描述符是进程级句柄,文件句柄是文件指针的指针,I-Node是文件的指针
+
+### 3.1通道基础
+
+- JAVA仅提供了SPI,不通的平台有不同的具体实现
+
+> #### 打开通道
+
+- I/O可以分为广义的两大类别:FILE I/O和Stream I/O,对应的有两种通道File通道和Socket通道
+
+```text
+JAVA提供了对应的4个类
+FileChannel
+ServerSocketChannel、SocketChannel和DatagramChannel
+```
+
+- [ ] Socket通道
+- StreamChannel的打开
+
+```java
+import java.net.InetSocketAddress;
+import java.nio.channels.DatagramChannel;
+import java.nio.channels.ServerSocketChannel;
+
+public class StreamChannelOpen {
+    public static void main(String[] args) {
+        SocketChannel sc = SocketChannel.open();
+        sc.connect(new InetSocketAddress("somehost", someport));
+        ServerSocketChannel ssc = ServerSocketChannel.open();
+        ssc.socket().bind(new InetSocketAddress(somelocalport));
+        DatagramChannel dc = DatagramChannel.open();
+    }
+}
+
+java.net.Socket类中也有getChannel()方法,这些方法虽然能返回一个的SocketChannel对象,
+        但是他们却并非新的通道来源,只有已经有通道存在的时候,它才返回与socket关联的通道.它们永远不会创建新的通道
+```
+
+- [ ] File通道
+- FileChannel打开
+
+```java
+import java.io.RandomAccessFile;
+import java.nio.channels.FileChannel;
+
+public class FileChannelOpen {
+    public static void main(String[] args) {
+        RandomAccessFile raf = new RandomAccessFile("someFile", "r");
+        FileChannel fc = raf.getChannel();
+    }
+}
+```
+
+> #### 使用通道
+
+- ReadableByteChannel和WriteableByteChannel是上面通道要实现的接口
+- SocketChannel是双向的很好理解,因为Socket的数据传输本来就是双向的.
+- FileChannel声名上也是一个双向的通道,但是事实往往并非如此,比如FileInputStream()是只读流,那么要写入的话会抛出NonWriteableChannelException
+- [ ] 数据读写
+- int read (ByteBuffer dst):
+  将Channel读取数据到Buffer,返回已传输的字节数,可能会比缓冲区的字节数少,甚至可能为0,缓冲区的位置也会发生已与传输字节相同数量的移动,如果仅进行了部分传输,缓冲区可以被重新提交给通道并从上次中断的地方继续传输,该过程可以重复进行直到缓冲区hasRemaining方法返回false
+
+```java
+import java.io.RandomAccessFile;
+import java.nio.channels.FileChannel;
+
+public class FileRead {
+    public static void main(String[] args) throws IOException {
+        String context = "Hello I am the file";
+        byte[] bytes = context.getBytes(StandardCharsets.UTF_8);
+        for (byte aByte : bytes) {
+            System.out.print(aByte);
+            System.out.print(",");
+        }
+        System.out.println();
+        FileInputStream fileInputStream = new FileInputStream("D:\\Dev\\language\\java\\AopTest\\src\\main\\java\\com\\tianhaolin\\nio\\mytest.txt");
+        FileChannel channel = fileInputStream.getChannel();
+        ByteBuffer buffer = ByteBuffer.allocateDirect(32);
+        //文件末尾会返回-1
+        while (channel.read(buffer) != -1) {
+            buffer.flip();
+            while (buffer.hasRemaining()) {
+                System.out.print(buffer.get());
+                System.out.print(",");
+            }
+            System.out.println();
+            buffer.clear();
+        }
+    }
+}
+```
+
+- int write (ByteBuffer src):将Buffer中的数据写入Channel,返回已写入的数据量
+
+- channel之间数据拷贝的例子
+
+```java
+public class ChannelCopy {
+    public static void main(String[] args) {
+        ByteBuffer buffer = ByteBuffer.allocateDirect(16 * 1024);
+        while (src.read(buffer) != -1) {
+            // Prepare the buffer to be drained 
+            buffer.flip();
+            // Write to the channel; may block 
+            dest.write(buffer);
+            // If partial transfer, shift remainder down
+            // If buffer is empty, same as doing clear( )
+            buffer.compact();
+        }
+        // EOF will leave buffer in fill state
+        buffer.flip();
+        while (buffer.hasRemaining()) {
+            dest.write(buffer);
+        }
+    }
+
+}
+
+```
+
+> #### 关闭通道
+
+- 与缓冲区不同,通道不能被重复使用,一个打开的通道即代表一个特定I/O服务的特定连接并封装该连接的状态.当通道关闭时,那个连接数据会丢失,然后通道将不再接收连接中的任何数据
+- 调用close()方法时,可能会导致在通道底层关闭I/O服务的过程中线程短暂阻塞
+- 通道上的close()方法可以多次调用,已关闭的通道在被调用close()方法时不会有任何动作
+
+## 3.2 Scatter/Gather
+
+- 通道提供了Scatter和Gather的能力(有时候也被称为矢量I/O)
+
+```java
+矢量I/O指在多个缓冲区上实现一个简单的I/O操作
+        就好像将多个缓冲区中的数据按顺序放入一个大的缓冲区
+        或者将读取的数据按照顺序放入多个缓冲区中
+```
+
+- 大多数现代操作系统都支持本地矢量I/O.当在一个通道上请求一个Scatter/Gather操作时,该请求会被翻译为适当的本地调用来直接填充或抽取缓冲区
+- scatter/gather的操作不需要单独的去操作其中的buffer,Channel会帮你做好这一切
+
+> #### Scatter(散布)
+
+- Scatter将从数据通道读取的数据按照顺序分布(scatter)到多个缓冲区,将每个缓冲区填满直至通道中的数据或者缓冲区最大空间被消耗完
+- [ ] API
+- ScatteringByteChannel是ReadableByteChannel的子接口,定义了如下的API
+- long read(ByteBuffer[] dsts)
+
+```text
+ByteBuffer header = ByteBuffer.allocateDirect (10);
+ByteBuffer body = ByteBuffer.allocateDirect (80);
+ByteBuffer [] buffers = { header, body };
+long bytesRead = channel.read (buffers);
+
+bytesRead会被赋值为48(假设channel的source长度为48),其中header种存10,body中存38
+```
+
+> #### Gather(合并)
+
+- Gather将多个缓冲区的数据组合合并发送出去
+- [ ] API
+- GatheringByteChannel是WriteableByteChannel的子接口,定义了如下API
+- long write(ByteBuffer[] srcs):将srcs数据组合合并发送到目标,返回已发送的数据长度
+
+### 3.3文件通道
+
+- 文件通道总是<font color='red'>阻塞式</font>的,因此不能够被设置与非阻塞模式
+- 对于文件I/O,其最强大之处在于异步I/O,它允许一个进程可以从操作系统请求一个或多个I/O操作而不必等待这些操作的完成.<font color='red'>而当前的很多操作系统目前不支持异步I/O<font>
+
+```text
+IO模型:
+阻塞IO模型:进程调用了I/O,直到等待数据处理完成(包括等待数据准备和数据拷贝)一直阻塞
+非阻塞IO模型:进程调用了I/O,不会一直等待数据准备,而是轮询访问内核,直到数据准备好;而数据从内核空间到用户空间的阶段是同步的
+IO复用模型:进程调用了I/O(select或者poll),在数据访问时不需要忙轮询,数据准备好后系统会告知用户进程;数据从内和空间到用户空间阶段是同步的
+        该模型没有阻塞recv,而是阻塞了select/poll
+信号驱动IO模型:进程调用了I/O,等内核数据准备好后,系统中断当前的程序,执行信号函数recv;数据从内核空间到用户空间阶段是同步的
+异步IO:调用aio_read,让内核等数据准备好,并复制到用户进程空间后执行事先指定好的函数.整个过程都委托给操作系统,是异步的
+```
+
+- FileChannel对象的具体实现一般是都是使用本地方法来实现API的.
+- FileChannel对象是线程安全的,多个进程可以在同一个实例上并发调用方法而不会引起任何问题.
+- FileChannel提供了文件访问和文件锁定的工程
+
+### 3.4内存映射文件
+
+- FileChannel提供了一个名为map()的方法,该方法可以在一个打开的文件和一个特殊类型的ByteBuffer之间建立一个虚拟内存映射
+- 通过内存映射机制来访问一个文件会比常规读写高效的多,甚至比使用通道的效率都高
+- 更重要的是操作系统的虚拟内存可以自动缓存内存页,这些页是用系统内存来缓存的,所以不会消耗Java虚拟机堆内存
+- map()
+
+```java
+import java.io.RandomAccessFile;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+
+public class UseMappedByteBuffer {
+    public static void main(String[] args) {
+        RandomAccessFile randomAccessFile = new RandomAccessFile("somefile");
+        FileChannel channel = randomAccessFile.getChannel();
+        // size不能随意填写,如果传入的范围超过文件实际大小,文件会膨胀到size()大小
+        // 如果是只读模式,文件无法膨胀,会抛出IOException
+        MappedByteBuffer buffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
+    }
+}
+```
+
+- unmap():该方法会将MappedByteBuffer与文件解绑
+- load():加载整个文件以使它常驻内存.这是一个高代价的动作,大文件会导致大量的页调入内存
+
+```java
+杜宇哪些要求近乎实时访问的程序,解决方案就是预加载
+        但是这并不能保证整个文件始终常驻于内存,因为很多因素是由操作系统而非JAVA虚拟机控制
+```
+
+- force():将内存中的修改强制持久化到硬盘上
+- 内存缓冲区与Scatter结合用例
+
+```java
+public class MappedHttp {
+    private static final String OUTPUT_FILE = "MappedHttp.out";
+    private static final String LINE_SEP = "\r\n";
+    private static final String SERVER_ID = "Server: Ronsoft Dummy Server";
+    private static final String HTTP_HDR = "HTTP/1.0 200 OK" + LINE_SEP + SERVER_ID + LINE_SEP;
+    private static final String HTTP_404_HDR = "HTTP/1.0 404 Not Found" + LINE_SEP + SERVER_ID + LINE_SEP;
+    private static final String MSG_404 = "Could not open file: ";
+
+    public static void main() throws Exception {
+        String file = "someFile";
+        ByteBuffer header = ByteBuffer.wrap(bytes(HTTP_HDR));
+        ByteBuffer dynhdrs = ByteBuffer.allocate(128);
+        ByteBuffer[] gather = {header, dynhdrs, null};
+        String contentType;
+        long contentLength = -1;
+        try {
+            FileInputStream fis = new FileInputStream(file);
+            FileChannel fc = fis.getChannel();
+            MappedByteBuffer fileData = fc.map(FileChannel.MapMode.READ_ONLY, 0, fc.size());
+            gather[2] = fileData;
+            contentLength = fc.size();
+            contentType = URLConnection.guessContentTypeFromName(file);
+        } catch (IOException e) {
+            // file could not be opened; report problem
+            ByteBuffer buf = ByteBuffer.allocate(128);
+            String msg = MSG_404 + e + LINE_SEP;
+            buf.put(bytes(msg));
+            buf.flip();
+            // Use the HTTP error response
+            gather[0] = ByteBuffer.wrap(bytes(HTTP_404_HDR));
+            gather[2] = buf;
+            contentLength = msg.length();
+            contentType = "text/plain";
+        }
+        StringBuffer sb = new StringBuffer();
+        sb.append("Content-Length: ").append(contentLength);
+        sb.append(LINE_SEP);
+        sb.append("Content-Type: ").append(contentType);
+        sb.append(LINE_SEP).append(LINE_SEP);
+        dynhdrs.put(bytes(sb.toString()));
+        dynhdrs.flip();
+        FileOutputStream fos = new FileOutputStream(OUTPUT_FILE);
+        FileChannel out = fos.getChannel();
+        // All the buffers have been prepared; write 'em out
+        while (out.write(gather) > 0) {
+            // Empty body; loop until all buffers are empty
+        }
+        out.close();
+        System.out.println("output written to " + OUTPUT_FILE);
+    }
+
+    // Convert a string to its constituent bytes // from the ASCII character set
+    private static byte[] bytes(String string) throws Exception {
+        return (string.getBytes("US-ASCII"));
+    }
+}
+```
+
+> #### Channel-to-Channel传输
+
+- 由于经常需要从一个位置将文件数据批量传输到另一个位置,FileChannel类添加了一些优化方法来提高该传输过程的效率
+- long transferTo(long position, long count, WritableByteChannel target)
+
+```text
+1.如果position + count的值大于文件的size值,传输会在文件尾的位置终止
+2.如果目的地是一个非阻塞的socket通道,那么当发送队列(send queue)满了之后传输就可能终止,并且输出队列(output queue)已满的话可能不会发送任何数据
+```
+
+- long transferFrom(ReadableByteChannel src,long position,long count)
+
+```text
+1.如果src是另外一个FileChannel,传输可能在position+count之前停止(如果达到文件尾)
+2.来源是一个非阻塞的socket通道,只有当前处于队列中国的数据才会被传输
+3.由于网络数据传输的非确定性,阻塞模式的socket也可能会执行部分传输,这取决于操作系统
+```
+
+- transferTo()和transferFrom()方法允许将一个通道交叉连接到另一个通道,而<font color='red'>不需要通过一个中间缓冲区来传递数据</font>
+
+```java
+只有FileChannel类有这两个方法,因此channel-to-channel传输中通道之一必须是FileChannel
+```
+
+- channel-to-channel的操作是极快的,特别是在底层操作系统提供本地支持的时候,某些操作系统可以不必通过用户空间传递数据而直接进行直接的数据传输
+
+- 例子
+
+```java
+public class FileChannelTest {
+    public static void main(String[] args) throws IOException {
+        try (FileInputStream fileInputStream = new FileInputStream("someFile");
+             FileChannel channel = fileInputStream.getChannel();) {
+            channel.transferTo(0, channel.size(), Channels.newChannel(System.out));
+        }
+    }
+}
+```
+
+- 源码解析
+
+```text
+ public long transferTo(long position, long count, WritableByteChannel target) throws IOException {
+        ensureOpen();
+        ...
+        ...
+        long n;
+        // 1.Attempt a direct transfer, if the kernel supports it
+        if ((n = transferToDirectly(position, icount, target)) >= 0)
+            return n;
+        // 2.Attempt a mapped transfer, but only to trusted channel types
+        if ((n = transferToTrustedChannel(position, icount, target)) >= 0)
+            return n;
+        // 3.Slow path for untrusted targets
+        return transferToArbitraryChannel(position, icount, target);
+}
+
+1.尝试使用直接传输
+    1.1检查内核是否支持直接传输
+        不支持直接返回0
+    1.2检查目标类型
+        文件通道:获取文件描述符
+        SelCh(SocketChannel的父类):获取通道的描述符
+        ELSE: 描述符为null
+    1.3如果描述符不为null(也就是满足1.2中的两种情况),调用底层操作系统的直接传输
+2.尝试使用映射传输
+    1.检查是否支持映射传输=>FileChannel || SelCh
+    2.使用映射Buffer传输
+3.一般传输
+    1.创建一个Buffer用于数据传输
+```
